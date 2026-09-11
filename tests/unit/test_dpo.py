@@ -6,6 +6,11 @@ import torch
 from rl_kernels import dpo
 
 
+@pytest.fixture(autouse=True)
+def disable_triton(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(dpo, "TRITON_AVAILABLE", False)
+
+
 @pytest.mark.parametrize("label_smoothing", [0.0, 0.05])
 def test_compute_dpo_loss(label_smoothing: float):
     batch_size = 256
