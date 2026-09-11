@@ -6,7 +6,7 @@ from jaxtyping import jaxtyped
 from torch import Tensor
 from torch.nn import functional as F
 
-try:
+try:  # pragma: no cover
     import triton  # ty: ignore[unresolved-import]  # noqa: F401
     import triton.language as tl  # ty: ignore[unresolved-import]  # noqa: F401
 
@@ -16,7 +16,7 @@ except ImportError:
     TRITON_AVAILABLE = False
 
 
-if TRITON_AVAILABLE:
+if TRITON_AVAILABLE:  # pragma: no cover
 
     @triton.jit
     def dpo_loss_forward_kernel():
