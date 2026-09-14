@@ -28,7 +28,7 @@ if TRITON_AVAILABLE:  # pragma: no cover
         return tl.where(logits >= 0, -log_sig_abs, logits - log_sig_abs)
 
     @triton.jit
-    def dpo_loss_forward_kernel(
+    def dpo_losses_forward_kernel(
         policy_chosen_logps_ptr,
         policy_rejected_logps_ptr,
         ref_chosen_logps_ptr,
@@ -75,7 +75,7 @@ if TRITON_AVAILABLE:  # pragma: no cover
     def dpo_loss_backward_kernel():
         raise NotImplementedError("To be implemented")
 
-    def _compute_dpo_loss_triton[B](
+    def _compute_dpo_losses_triton[B](
         *,
         policy_chosen_logps: Float[Tensor, "B"],
         policy_rejected_logps: Float[Tensor, "B"],
@@ -95,7 +95,7 @@ if TRITON_AVAILABLE:  # pragma: no cover
         grid = lambda meta: (  # noqa: E731
             triton.cdiv(n_elements, meta["BLOCK_SIZE"]),  # ty: ignore[invalid-argument-type]
         )
-        dpo_loss_forward_kernel[grid](
+        dpo_losses_forward_kernel[grid](
             policy_chosen_logps,
             policy_rejected_logps,
             ref_chosen_logps,
@@ -121,7 +121,7 @@ if TRITON_AVAILABLE:  # pragma: no cover
         raise NotImplementedError  # TODO: implement
 
 
-def _compute_dpo_loss_torch[B](
+def _compute_dpo_losses_torch[B](
     *,
     policy_chosen_logps: Float[Tensor, "B"],
     policy_rejected_logps: Float[Tensor, "B"],
@@ -178,7 +178,9 @@ class TritonDPOLossFunction[B](torch.autograd.Function):
         Float[Tensor, ""], Float[Tensor, "B"], Float[Tensor, "B"], Float[Tensor, "B"]
     ]:
         loss_fn = (
-            _compute_dpo_loss_triton if TRITON_AVAILABLE else _compute_dpo_loss_torch
+            _compute_dpo_losses_triton
+            if TRITON_AVAILABLE
+            else _compute_dpo_losses_torch
         )
 
         losses, chosen_rewards, rejected_rewards, logits = loss_fn(
