@@ -56,11 +56,12 @@ if TRITON_AVAILABLE:  # pragma: no cover
         logits = chosen_rewards - rejected_rewards
 
         if label_smoothing == 0.0:
-            losses = -_stable_logsigmoid(logits)
+            losses = -_stable_logsigmoid(logits)  # ty: ignore[invalid-argument-type]
         else:
-            losses = -(1.0 - label_smoothing) * _stable_logsigmoid(
-                logits
-            ) - label_smoothing * _stable_logsigmoid(-logits)
+            losses = (
+                -(1.0 - label_smoothing) * _stable_logsigmoid(logits)  # ty: ignore[invalid-argument-type]
+                - label_smoothing * _stable_logsigmoid(-logits)  # ty: ignore[invalid-argument-type]
+            )
 
         # store outputs
         tl.store(losses_ptr + offsets, losses, mask=mask)
@@ -89,7 +90,9 @@ if TRITON_AVAILABLE:  # pragma: no cover
         logits = torch.empty_like(policy_chosen_logps)
 
         n_elements = losses.numel()
-        grid = lambda meta: (triton.cdiv(n_elements, meta["BLOCK_SIZE"]),)  # noqa: E731
+        grid = lambda meta: (  # noqa: E731
+            triton.cdiv(n_elements, meta["BLOCK_SIZE"]),  # ty: ignore[invalid-argument-type]
+        )
         dpo_loss_forward_kernel[grid](
             policy_chosen_logps,
             policy_rejected_logps,
@@ -101,8 +104,8 @@ if TRITON_AVAILABLE:  # pragma: no cover
             logits,
             n_elements,
             beta,
-            label_smoothing,
-            BLOCK_SIZE=1024,
+            label_smoothing,  # ty: ignore[invalid-argument-type]
+            BLOCK_SIZE=1024,  # ty: ignore[invalid-argument-type]
         )
 
         return losses, chosen_rewards, rejected_rewards, logits
