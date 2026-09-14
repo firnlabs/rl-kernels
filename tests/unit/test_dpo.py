@@ -49,7 +49,7 @@ def test_compute_dpo_loss_triton_torch_parity(label_smoothing: float):
     beta = 0.1
 
     ref_losses, ref_chosen_rewards, ref_rejected_rewards, ref_logits = (
-        dpo._compute_dpo_loss_torch(
+        dpo._compute_dpo_losses_torch(
             policy_chosen_logps=policy_chosen_logps,
             policy_rejected_logps=policy_rejected_logps,
             ref_chosen_logps=ref_chosen_logps,
@@ -59,7 +59,7 @@ def test_compute_dpo_loss_triton_torch_parity(label_smoothing: float):
         )
     )
 
-    losses, chosen_rewards, rejected_rewards, logits = dpo._compute_dpo_loss_triton(
+    losses, chosen_rewards, rejected_rewards, logits = dpo._compute_dpo_losses_triton(
         policy_chosen_logps=policy_chosen_logps,
         policy_rejected_logps=policy_rejected_logps,
         ref_chosen_logps=ref_chosen_logps,

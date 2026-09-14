@@ -1,5 +1,7 @@
 """Triton kernels for Direct Preference Optimization (DPO)."""
 
+from typing import Protocol
+
 from beartype import beartype
 from jaxtyping import Float
 from jaxtyping import jaxtyped
@@ -26,7 +28,7 @@ if TRITON_AVAILABLE:  # pragma: no cover
         return tl.where(logits >= 0, -log_sig_abs, logits - log_sig_abs)
 
     @triton.jit
-    def dpo_loss_forward_kernel(
+    def dpo_losses_forward_kernel(
         policy_chosen_logps_ptr,
         policy_rejected_logps_ptr,
         ref_chosen_logps_ptr,
@@ -73,7 +75,7 @@ if TRITON_AVAILABLE:  # pragma: no cover
     def dpo_loss_backward_kernel():
         raise NotImplementedError("To be implemented")
 
-    def _compute_dpo_loss_triton[B](
+    def _compute_dpo_losses_triton[B](
         *,
         policy_chosen_logps: Float[Tensor, "B"],
         policy_rejected_logps: Float[Tensor, "B"],
@@ -82,7 +84,7 @@ if TRITON_AVAILABLE:  # pragma: no cover
         beta: float = 0.1,
         label_smoothing: float = 0.0,
     ) -> tuple[
-        Float[Tensor, ""], Float[Tensor, "B"], Float[Tensor, "B"], Float[Tensor, "B"]
+        Float[Tensor, "B"], Float[Tensor, "B"], Float[Tensor, "B"], Float[Tensor, "B"]
     ]:
         losses = torch.empty_like(policy_chosen_logps)
         chosen_rewards = torch.empty_like(policy_chosen_logps)
@@ -93,7 +95,7 @@ if TRITON_AVAILABLE:  # pragma: no cover
         grid = lambda meta: (  # noqa: E731
             triton.cdiv(n_elements, meta["BLOCK_SIZE"]),  # ty: ignore[invalid-argument-type]
         )
-        dpo_loss_forward_kernel[grid](
+        dpo_losses_forward_kernel[grid](
             policy_chosen_logps,
             policy_rejected_logps,
             ref_chosen_logps,
@@ -110,8 +112,16 @@ if TRITON_AVAILABLE:  # pragma: no cover
 
         return losses, chosen_rewards, rejected_rewards, logits
 
+    def _compute_dpo_loss_backward_triton[B](
+        logits: Float[Tensor, "B"],
+        grad_output: float = 1.0,
+        beta: float = 0.1,
+        label_smoothing: float = 0.0,
+    ):
+        raise NotImplementedError  # TODO: implement
 
-def _compute_dpo_loss_torch[B](
+
+def _compute_dpo_losses_torch[B](
     *,
     policy_chosen_logps: Float[Tensor, "B"],
     policy_rejected_logps: Float[Tensor, "B"],
@@ -120,7 +130,7 @@ def _compute_dpo_loss_torch[B](
     beta: float = 0.1,
     label_smoothing: float = 0.0,
 ) -> tuple[
-    Float[Tensor, ""], Float[Tensor, "B"], Float[Tensor, "B"], Float[Tensor, "B"]
+    Float[Tensor, "B"], Float[Tensor, "B"], Float[Tensor, "B"], Float[Tensor, "B"]
 ]:
     chosen_rewards = beta * (policy_chosen_logps - ref_chosen_logps)
     rejected_rewards = beta * (policy_rejected_logps - ref_rejected_logps)
@@ -136,6 +146,81 @@ def _compute_dpo_loss_torch[B](
     return losses, chosen_rewards, rejected_rewards, logits
 
 
+def _compute_dpo_loss_backward_torch[B](
+    logits: Float[Tensor, "B"],
+    grad_output: float = 1.0,
+    beta: float = 0.1,
+    label_smoothing: float = 0.0,
+):
+    raise NotImplementedError  # TODO: implement
+
+
+class AutogradFunctionContext(Protocol):  # pragma: no cover
+    saved_tensors: tuple[Tensor, ...]
+    beta: float
+    label_smoothing: float
+
+    def save_for_backward(self, *tensors: Tensor) -> None: ...
+    def mark_non_differentiable(self, *tensors: Tensor) -> None: ...
+
+
+class TritonDPOLossFunction[B](torch.autograd.Function):
+    @staticmethod
+    def forward(
+        ctx: AutogradFunctionContext,
+        policy_chosen_logps: Tensor,
+        policy_rejected_logps: Tensor,
+        ref_chosen_logps: Tensor,
+        ref_rejected_logps: Tensor,
+        beta: float = 0.1,
+        label_smoothing: float = 0.0,
+    ) -> tuple[
+        Float[Tensor, ""], Float[Tensor, "B"], Float[Tensor, "B"], Float[Tensor, "B"]
+    ]:
+        loss_fn = (
+            _compute_dpo_losses_triton
+            if TRITON_AVAILABLE
+            else _compute_dpo_losses_torch
+        )
+
+        losses, chosen_rewards, rejected_rewards, logits = loss_fn(
+            policy_chosen_logps=policy_chosen_logps,
+            policy_rejected_logps=policy_rejected_logps,
+            ref_chosen_logps=ref_chosen_logps,
+            ref_rejected_logps=ref_rejected_logps,
+            beta=beta,
+            label_smoothing=label_smoothing,
+        )
+
+        ctx.save_for_backward(logits)
+        ctx.beta = beta
+        ctx.label_smoothing = label_smoothing
+
+        ctx.mark_non_differentiable(chosen_rewards, rejected_rewards, logits)
+
+        loss = losses.mean()
+        return loss, chosen_rewards, rejected_rewards, logits
+
+    @staticmethod
+    def backward(
+        ctx: AutogradFunctionContext, grad_output: float = 1.0
+    ) -> tuple[Float[Tensor, "B"], Float[Tensor, "B"], None, None]:  # pragma: no cover
+        backward_fn = (
+            _compute_dpo_loss_backward_triton
+            if TRITON_AVAILABLE
+            else _compute_dpo_loss_backward_torch
+        )
+
+        beta = ctx.beta
+        label_smoothing = ctx.label_smoothing
+        (logits,) = ctx.saved_tensors
+
+        grad_policy_chosen_logps, grad_policy_rejected_logps = backward_fn(
+            logits, grad_output, beta, label_smoothing
+        )
+        return grad_policy_chosen_logps, grad_policy_rejected_logps, None, None
+
+
 @jaxtyped(typechecker=beartype)
 def compute_dpo_loss[B](
     *,
@@ -148,12 +233,7 @@ def compute_dpo_loss[B](
 ) -> tuple[
     Float[Tensor, ""], Float[Tensor, "B"], Float[Tensor, "B"], Float[Tensor, "B"]
 ]:
-    if TRITON_AVAILABLE:
-        loss_fn = _compute_dpo_loss_triton
-    else:
-        loss_fn = _compute_dpo_loss_torch
-
-    losses, chosen_rewards, rejected_rewards, logits = loss_fn(
+    loss, chosen_rewards, rejected_rewards, logits = TritonDPOLossFunction.apply(
         policy_chosen_logps=policy_chosen_logps,
         policy_rejected_logps=policy_rejected_logps,
         ref_chosen_logps=ref_chosen_logps,
@@ -162,4 +242,4 @@ def compute_dpo_loss[B](
         label_smoothing=label_smoothing,
     )
 
-    return losses.mean(), chosen_rewards, rejected_rewards, logits
+    return loss, chosen_rewards, rejected_rewards, logits
