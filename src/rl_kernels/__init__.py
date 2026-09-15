@@ -1,1 +1,1 @@
-"""{{ project_title }} package."""
+"""rl_kernels package."""

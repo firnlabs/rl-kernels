@@ -20,22 +20,22 @@ def batch_size() -> int:
 
 @pytest.fixture
 def policy_chosen_logps[B](batch_size: int) -> Float[Tensor, "B"]:
-    return torch.randn(batch_size)
+    return torch.randn(batch_size, requires_grad=True)
 
 
 @pytest.fixture
 def policy_rejected_logps[B](batch_size: int) -> Float[Tensor, "B"]:
-    return torch.randn(batch_size)
+    return torch.randn(batch_size, requires_grad=True)
 
 
 @pytest.fixture
 def ref_chosen_logps[B](batch_size: int) -> Float[Tensor, "B"]:
-    return torch.randn(batch_size)
+    return torch.randn(batch_size, requires_grad=False)
 
 
 @pytest.fixture
 def ref_rejected_logps[B](batch_size: int) -> Float[Tensor, "B"]:
-    return torch.randn(batch_size)
+    return torch.randn(batch_size, requires_grad=False)
 
 
 @pytest.fixture
@@ -193,3 +193,35 @@ def test_dpo_loss_backward_triton_torch_parity[B](
 
     torch.testing.assert_close(grad_chosen, ref_grad_chosen, rtol=1e-5, atol=1e-5)
     torch.testing.assert_close(grad_rejected, ref_grad_rejected, rtol=1e-5, atol=1e-5)
+
+
+@pytest.mark.parametrize("label_smoothing", [0.0, 0.05])
+def test_dpo_loss_forward_backward[B](
+    policy_chosen_logps: Float[Tensor, "B"],
+    policy_rejected_logps: Float[Tensor, "B"],
+    ref_chosen_logps: Float[Tensor, "B"],
+    ref_rejected_logps: Float[Tensor, "B"],
+    beta: float,
+    label_smoothing: float,
+) -> None:
+    result = dpo.compute_dpo_loss(
+        policy_chosen_logps=policy_chosen_logps,
+        policy_rejected_logps=policy_rejected_logps,
+        ref_chosen_logps=ref_chosen_logps,
+        ref_rejected_logps=ref_rejected_logps,
+        beta=beta,
+        label_smoothing=label_smoothing,
+    )
+    loss = result[0]
+    loss.backward()
+
+    logits = result[-1]
+    exp_grad_chosen, exp_grad_rejected = dpo._compute_dpo_loss_backward_torch(
+        logits=logits, grad_output=1.0, beta=beta, label_smoothing=label_smoothing
+    )
+    torch.testing.assert_close(
+        policy_chosen_logps.grad, exp_grad_chosen, rtol=1e-5, atol=1e-5
+    )
+    torch.testing.assert_close(
+        policy_rejected_logps.grad, exp_grad_rejected, rtol=1e-5, atol=1e-5
+    )
