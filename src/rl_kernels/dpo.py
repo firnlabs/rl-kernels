@@ -10,16 +10,11 @@ import torch
 from torch import Tensor
 from torch.nn import functional as F
 
-try:  # pragma: no cover
-    import triton  # ty: ignore[unresolved-import]  # noqa: F401
-    import triton.language as tl  # ty: ignore[unresolved-import]  # noqa: F401
-
-    # Mark Triton available only if accelerator supports it
-    TRITON_AVAILABLE = torch.accelerator.is_available()
-except ImportError:
-    TRITON_AVAILABLE = False
+from rl_kernels.triton_helper import TRITON_AVAILABLE
 
 if TRITON_AVAILABLE:  # pragma: no cover
+    import triton  # ty: ignore[unresolved-import]  # noqa: F401
+    import triton.language as tl  # ty: ignore[unresolved-import]  # noqa: F401
 
     @triton.jit
     def _stable_logsigmoid(logits):

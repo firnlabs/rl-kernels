@@ -32,11 +32,11 @@ dev = [
     "ruff>=0.15.20",
     "ty>=0.0.58",
 ]
-notebook = [
-    "ipykernel>=7.3.0",
+benchmark = [
     "matplotlib>=3.11.0",
     "pandas>=3.0.5",
     "tqdm>=4.68.4",
+    "typer>=0.27.2",
 ]
 
 [tool.uv.sources]
