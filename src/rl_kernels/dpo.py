@@ -18,7 +18,6 @@ try:  # pragma: no cover
 except ImportError:
     TRITON_AVAILABLE = False
 
-
 if TRITON_AVAILABLE:  # pragma: no cover
 
     @triton.jit
@@ -72,8 +71,36 @@ if TRITON_AVAILABLE:  # pragma: no cover
         tl.store(logits_ptr + offsets, logits, mask=mask)
 
     @triton.jit
-    def dpo_loss_backward_kernel():
-        raise NotImplementedError("To be implemented")
+    def dpo_loss_backward_kernel(
+        logits_ptr,
+        grad_policy_chosen_logps_ptr,
+        grad_policy_rejected_logps_ptr,
+        grad_output,
+        n_elements,
+        beta,
+        label_smoothing,
+        BLOCK_SIZE: tl.constexpr,
+    ):
+        pid = tl.program_id(axis=0)
+        block_start = pid * BLOCK_SIZE
+        offsets = block_start + tl.arange(0, BLOCK_SIZE)
+        mask = offsets < n_elements
+
+        logits = tl.load(logits_ptr + offsets, mask=mask)
+        sig = tl.sigmoid(logits)  # ty: ignore[invalid-argument-type]
+        grad_policy_chosen_logps = (
+            grad_output / n_elements * beta * (sig - (1.0 - label_smoothing))
+        )
+        grad_policy_rejected_logps = -grad_policy_chosen_logps
+
+        tl.store(
+            grad_policy_chosen_logps_ptr + offsets, grad_policy_chosen_logps, mask=mask
+        )
+        tl.store(
+            grad_policy_rejected_logps_ptr + offsets,
+            grad_policy_rejected_logps,
+            mask=mask,
+        )
 
     def _compute_dpo_losses_triton[B](
         *,
@@ -117,8 +144,25 @@ if TRITON_AVAILABLE:  # pragma: no cover
         grad_output: float = 1.0,
         beta: float = 0.1,
         label_smoothing: float = 0.0,
-    ):
-        raise NotImplementedError  # TODO: implement
+    ) -> tuple[Float[Tensor, "B"], Float[Tensor, "B"]]:
+        grad_policy_chosen_logps = torch.empty_like(logits)
+        grad_policy_rejected_logps = torch.empty_like(logits)
+        n_elements = logits.numel()
+
+        grid = lambda meta: (  # noqa: E731
+            triton.cdiv(n_elements, meta["BLOCK_SIZE"]),  # ty: ignore[invalid-argument-type]
+        )
+        dpo_loss_backward_kernel[grid](
+            logits,
+            grad_policy_chosen_logps,
+            grad_policy_rejected_logps,
+            grad_output,
+            n_elements,
+            beta,
+            label_smoothing,
+            BLOCK_SIZE=1024,  # ty: ignore[invalid-argument-type]
+        )
+        return grad_policy_chosen_logps, grad_policy_rejected_logps
 
 
 def _compute_dpo_losses_torch[B](
@@ -147,12 +191,17 @@ def _compute_dpo_losses_torch[B](
 
 
 def _compute_dpo_loss_backward_torch[B](
+    *,
     logits: Float[Tensor, "B"],
     grad_output: float = 1.0,
     beta: float = 0.1,
     label_smoothing: float = 0.0,
-):
-    raise NotImplementedError  # TODO: implement
+) -> tuple[Float[Tensor, "B"], Float[Tensor, "B"]]:
+    B = logits.shape[0]
+    sig = F.sigmoid(logits)
+    grad_policy_chosen_logps = grad_output / B * beta * (sig - (1.0 - label_smoothing))
+    grad_plicy_rejected_logps = -grad_policy_chosen_logps
+    return grad_policy_chosen_logps, grad_plicy_rejected_logps
 
 
 class AutogradFunctionContext(Protocol):  # pragma: no cover
@@ -216,7 +265,10 @@ class TritonDPOLossFunction[B](torch.autograd.Function):
         (logits,) = ctx.saved_tensors
 
         grad_policy_chosen_logps, grad_policy_rejected_logps = backward_fn(
-            logits, grad_output, beta, label_smoothing
+            logits=logits,
+            grad_output=grad_output,
+            beta=beta,
+            label_smoothing=label_smoothing,
         )
         return grad_policy_chosen_logps, grad_policy_rejected_logps, None, None
 
