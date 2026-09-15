@@ -12,6 +12,7 @@ dependencies = [
     "jaxtyping>=0.3.11",
     "numpy>=2.5.3",
     "torch>=2.14.0",
+    "triton",
 ]
 
 [build-system]
@@ -34,6 +35,11 @@ notebook = [
     "ipykernel>=7.3.0",
     "matplotlib>=3.11.0",
     "tqdm>=4.68.4",
+]
+
+[tool.uv.sources]
+triton = [
+    { url = "https://github.com/bledden/triton-msl/releases/download/triton-wheel-3.7.0-cp314-macos-arm64/triton-3.7.0+git4da2e268-cp314-cp314-macosx_15_0_arm64.whl", marker = "sys_platform == 'darwin' and platform_machine == 'arm64'" },
 ]
 
 [tool.pytest.ini_options]

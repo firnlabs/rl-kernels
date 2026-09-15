@@ -1,6 +1,10 @@
 version = 1
 revision = 3
 requires-python = ">=3.14"
+resolution-markers = [
+    "platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "platform_machine != 'arm64' or sys_platform != 'darwin'",
+]
 
 [[package]]
 name = "appnope"
@@ -1444,6 +1448,8 @@ dependencies = [
     { name = "jaxtyping" },
     { name = "numpy" },
     { name = "torch" },
+    { name = "triton", version = "3.7.0+git4da2e268", source = { url = "https://github.com/bledden/triton-msl/releases/download/triton-wheel-3.7.0-cp314-macos-arm64/triton-3.7.0+git4da2e268-cp314-cp314-macosx_15_0_arm64.whl" }, marker = "platform_machine == 'arm64' and sys_platform == 'darwin'" },
+    { name = "triton", version = "3.8.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'arm64' or sys_platform != 'darwin'" },
 ]
 
 [package.dev-dependencies]
@@ -1470,6 +1476,8 @@ requires-dist = [
     { name = "jaxtyping", specifier = ">=0.3.11" },
     { name = "numpy", specifier = ">=2.5.3" },
     { name = "torch", specifier = ">=2.14.0" },
+    { name = "triton", marker = "platform_machine != 'arm64' or sys_platform != 'darwin'" },
+    { name = "triton", marker = "platform_machine == 'arm64' and sys_platform == 'darwin'", url = "https://github.com/bledden/triton-msl/releases/download/triton-wheel-3.7.0-cp314-macos-arm64/triton-3.7.0+git4da2e268-cp314-cp314-macosx_15_0_arm64.whl" },
 ]
 
 [package.metadata.requires-dev]
@@ -1603,7 +1611,7 @@ dependencies = [
     { name = "nvidia-nvshmem-cu13", marker = "sys_platform == 'linux'" },
     { name = "setuptools" },
     { name = "sympy" },
-    { name = "triton", marker = "python_full_version < '3.15' and sys_platform == 'linux'" },
+    { name = "triton", version = "3.8.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.15' and sys_platform == 'linux'" },
     { name = "typing-extensions" },
 ]
 wheels = [
@@ -1657,8 +1665,25 @@ wheels = [
 
 [[package]]
 name = "triton"
+version = "3.7.0+git4da2e268"
+source = { url = "https://github.com/bledden/triton-msl/releases/download/triton-wheel-3.7.0-cp314-macos-arm64/triton-3.7.0+git4da2e268-cp314-cp314-macosx_15_0_arm64.whl" }
+resolution-markers = [
+    "platform_machine == 'arm64' and sys_platform == 'darwin'",
+]
+wheels = [
+    { url = "https://github.com/bledden/triton-msl/releases/download/triton-wheel-3.7.0-cp314-macos-arm64/triton-3.7.0+git4da2e268-cp314-cp314-macosx_15_0_arm64.whl", hash = "sha256:68625bf98386cab87f4d9957b84292222f4a011dfc9b5cc440cb1dfc3928da99" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "importlib-metadata", marker = "python_full_version < '3.10'" }]
+
+[[package]]
+name = "triton"
 version = "3.8.0"
 source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "platform_machine != 'arm64' or sys_platform != 'darwin'",
+]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b8/59/bf0e9493118bb353ab59a5d6a65db3618d9b314417cc1459f0121e0ec5c9/triton-3.8.0-cp314-cp314-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:1f6b48d0591929a3867973acac3dccd4e058585f91bfb41022de496c9ffab304", size = 226488654, upload-time = "2026-08-28T16:08:47.141Z" },
     { url = "https://files.pythonhosted.org/packages/93/d9/08c75f3459f19ad00425b564058e40efa4bcd79b816064cf27499303ea42/triton-3.8.0-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:387dae4cb0089a7b6ba1a428ae0782b65c4c58f57d94617cb22ca8593d8ccbca", size = 247972313, upload-time = "2026-08-28T15:56:14.007Z" },

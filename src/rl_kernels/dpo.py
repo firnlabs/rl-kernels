@@ -14,8 +14,8 @@ try:  # pragma: no cover
     import triton  # ty: ignore[unresolved-import]  # noqa: F401
     import triton.language as tl  # ty: ignore[unresolved-import]  # noqa: F401
 
-    TRITON_AVAILABLE = torch.cuda.is_available()
-    print("Triton is available")
+    # Mark Triton available only if accelerator supports it
+    TRITON_AVAILABLE = torch.accelerator.is_available()
 except ImportError:
     TRITON_AVAILABLE = False
 
