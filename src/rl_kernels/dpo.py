@@ -1,5 +1,6 @@
 """Triton kernels for Direct Preference Optimization (DPO)."""
 
+from typing import Any
 from typing import Protocol
 
 from beartype import beartype
@@ -141,7 +142,7 @@ if TRITON_AVAILABLE:  # pragma: no cover
 
     def _compute_dpo_loss_backward_triton[B](
         logits: Float[Tensor, "B"],
-        grad_output: float = 1.0,
+        grad_output: Float[Tensor, ""] | float = 1.0,
         beta: float = 0.1,
         label_smoothing: float = 0.0,
     ) -> tuple[Float[Tensor, "B"], Float[Tensor, "B"]]:
@@ -187,13 +188,13 @@ def _compute_dpo_losses_torch[B](
             logits
         ) - label_smoothing * F.logsigmoid(-logits)
 
-    return losses, chosen_rewards, rejected_rewards, logits
+    return losses, chosen_rewards.detach(), rejected_rewards.detach(), logits.detach()
 
 
 def _compute_dpo_loss_backward_torch[B](
     *,
     logits: Float[Tensor, "B"],
-    grad_output: float = 1.0,
+    grad_output: Float[Tensor, ""] | float = 1.0,
     beta: float = 0.1,
     label_smoothing: float = 0.0,
 ) -> tuple[Float[Tensor, "B"], Float[Tensor, "B"]]:
@@ -252,8 +253,12 @@ class TritonDPOLossFunction[B](torch.autograd.Function):
 
     @staticmethod
     def backward(
-        ctx: AutogradFunctionContext, grad_output: float = 1.0
-    ) -> tuple[Float[Tensor, "B"], Float[Tensor, "B"], None, None]:  # pragma: no cover
+        ctx: AutogradFunctionContext,
+        grad_loss: Float[Tensor, ""],
+        *grad_metrics: Any,  # unused
+    ) -> tuple[
+        Float[Tensor, "B"], Float[Tensor, "B"], None, None, None, None
+    ]:  # pragma: no cover
         backward_fn = (
             _compute_dpo_loss_backward_triton
             if TRITON_AVAILABLE
@@ -266,11 +271,18 @@ class TritonDPOLossFunction[B](torch.autograd.Function):
 
         grad_policy_chosen_logps, grad_policy_rejected_logps = backward_fn(
             logits=logits,
-            grad_output=grad_output,
+            grad_output=grad_loss,
             beta=beta,
             label_smoothing=label_smoothing,
         )
-        return grad_policy_chosen_logps, grad_policy_rejected_logps, None, None
+        return (
+            grad_policy_chosen_logps,
+            grad_policy_rejected_logps,
+            None,
+            None,
+            None,
+            None,
+        )
 
 
 @jaxtyped(typechecker=beartype)
