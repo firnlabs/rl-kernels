@@ -69,7 +69,7 @@ def test_compute_dpo_loss[B](
 
 
 @pytest.mark.skipif(
-    not dpo.TRITON_AVAILABLE, reason="Requires OpenAI Triton availability"
+    not dpo.TRITON_AVAILABLE, reason="Requires OpenAI Triton availability."
 )
 @pytest.mark.parametrize("label_smoothing", [0.0, 0.05])
 def test_compute_dpo_loss_triton_torch_parity[B](
@@ -80,7 +80,8 @@ def test_compute_dpo_loss_triton_torch_parity[B](
     beta: float,
     label_smoothing: float,
 ) -> None:
-    device = "cuda"
+    device = torch.accelerator.current_accelerator()
+    assert device is not None
     policy_chosen_logps = policy_chosen_logps.to(device)
     policy_rejected_logps = policy_rejected_logps.to(device)
     ref_chosen_logps = ref_chosen_logps.to(device)
@@ -155,7 +156,7 @@ def test_dpo_loss_backward_torch_grad_check[B](
 
 
 @pytest.mark.skipif(
-    not dpo.TRITON_AVAILABLE, reason="Requires OpenAI Triton availability"
+    not dpo.TRITON_AVAILABLE, reason="Requires OpenAI Triton availability."
 )
 @pytest.mark.parametrize("label_smoothing", [0.0, 0.05])
 def test_dpo_loss_backward_triton_torch_parity[B](
@@ -166,7 +167,8 @@ def test_dpo_loss_backward_triton_torch_parity[B](
     beta: float,
     label_smoothing: float,
 ) -> None:
-    device = "cuda"
+    device = torch.accelerator.current_accelerator()
+    assert device is not None
     policy_chosen_logps = policy_chosen_logps.to(device)
     policy_rejected_logps = policy_rejected_logps.to(device)
     ref_chosen_logps = ref_chosen_logps.to(device)
