@@ -6,7 +6,7 @@ readme = "README.md"
 authors = [
     { name = "Carlos Ezequiel", email = "carlos@firnresearch.com" }
 ]
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 dependencies = [
     "beartype>=0.22.9",
     "jaxtyping>=0.3.11",
@@ -57,7 +57,7 @@ exclude_lines = [
 ]
 
 [tool.ruff]
-target-version = "py312"
+target-version = "py314"
 line-length = 88
 extend-include = ["*.ipynb"]
 
@@ -102,7 +102,7 @@ check-yield-types = false
 
 
 [tool.ty.environment]
-python-version = "3.12"
+python-version = "3.14"
 
 [tool.ty.rules]
 invalid-method-override = "ignore"
