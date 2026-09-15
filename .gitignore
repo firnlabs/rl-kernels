@@ -23,3 +23,7 @@ scratch/
 
 # Project
 .copier-answers.yml
+
+# Data
+*.csv
+*.png
