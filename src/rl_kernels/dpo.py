@@ -18,7 +18,6 @@ try:  # pragma: no cover
 except ImportError:
     TRITON_AVAILABLE = False
 
-
 if TRITON_AVAILABLE:  # pragma: no cover
 
     @triton.jit
@@ -88,7 +87,7 @@ if TRITON_AVAILABLE:  # pragma: no cover
         mask = offsets < n_elements
 
         logits = tl.load(logits_ptr + offsets, mask=mask)
-        sig = tl.sigmoid(logits)
+        sig = tl.sigmoid(logits)  # ty: ignore[invalid-argument-type]
         grad_policy_chosen_logps = (
             grad_output / n_elements * beta * (sig - (1.0 - label_smoothing))
         )
@@ -150,7 +149,9 @@ if TRITON_AVAILABLE:  # pragma: no cover
         grad_policy_rejected_logps = torch.empty_like(logits)
         n_elements = logits.numel()
 
-        grid = lambda meta: (triton.cdiv(n_elements, meta["BLOCK_SIZE"]),)  # noqa: E731
+        grid = lambda meta: (  # noqa: E731
+            triton.cdiv(n_elements, meta["BLOCK_SIZE"]),  # ty: ignore[invalid-argument-type]
+        )
         dpo_loss_backward_kernel[grid](
             logits,
             grad_policy_chosen_logps,
@@ -159,7 +160,7 @@ if TRITON_AVAILABLE:  # pragma: no cover
             n_elements,
             beta,
             label_smoothing,
-            BLOCK_SIZE=1024,
+            BLOCK_SIZE=1024,  # ty: ignore[invalid-argument-type]
         )
         return grad_policy_chosen_logps, grad_policy_rejected_logps
 
