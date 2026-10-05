@@ -14,6 +14,11 @@ from rl_kernels.triton_helper import TRITON_AVAILABLE
 # Ensure benchmark runs on real hardware rather than Triton interpreter
 os.environ.pop("TRITON_INTERPRET", None)
 
+# Fix for headless environments (e.g. Colab / Jupyter) where MPLBACKEND is set to
+# matplotlib_inline, which is not installed in the isolated virtualenv
+if "matplotlib_inline" in os.environ.get("MPLBACKEND", ""):
+    os.environ["MPLBACKEND"] = "Agg"
+
 app = typer.Typer(
     name="benchmark-dpo",
     help="Benchmark DPO Triton kernel vs PyTorch baseline.",
