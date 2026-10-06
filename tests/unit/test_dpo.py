@@ -158,7 +158,13 @@ def test_dpo_loss_backward_torch_grad_check[B](
 @pytest.mark.skipif(
     not dpo.TRITON_AVAILABLE, reason="Requires OpenAI Triton availability."
 )
-@pytest.mark.parametrize("label_smoothing", [0.0, 0.05])
+@pytest.mark.parametrize(
+    "label_smoothing, grad_output_is_tensor",
+    [
+        (0.0, False),
+        (0.05, True),
+    ],
+)
 def test_dpo_loss_backward_triton_torch_parity[B](
     policy_chosen_logps: Float[Tensor, "B"],
     policy_rejected_logps: Float[Tensor, "B"],
@@ -166,6 +172,7 @@ def test_dpo_loss_backward_triton_torch_parity[B](
     ref_rejected_logps: Float[Tensor, "B"],
     beta: float,
     label_smoothing: float,
+    grad_output_is_tensor: bool,
 ) -> None:
     device = torch.accelerator.current_accelerator()
     assert device is not None
@@ -177,7 +184,7 @@ def test_dpo_loss_backward_triton_torch_parity[B](
     policy_ratio = policy_chosen_logps - policy_rejected_logps
     ref_ratio = ref_chosen_logps - ref_rejected_logps
     logits = beta * (policy_ratio - ref_ratio)
-    grad_output = 1.0
+    grad_output = torch.tensor(1.0) if grad_output_is_tensor else 1.0
 
     ref_grad_chosen, ref_grad_rejected = dpo._compute_dpo_loss_backward_torch(
         logits=logits,

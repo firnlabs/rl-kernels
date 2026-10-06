@@ -145,6 +145,11 @@ if TRITON_AVAILABLE:  # pragma: no cover
         grad_policy_rejected_logps = torch.empty_like(logits)
         n_elements = logits.numel()
 
+        if isinstance(grad_output, Tensor):
+            grad_output = float(grad_output.item())
+        else:
+            grad_output = float(grad_output)
+
         grid = lambda meta: (  # noqa: E731
             triton.cdiv(n_elements, meta["BLOCK_SIZE"]),  # ty: ignore[invalid-argument-type]
         )
