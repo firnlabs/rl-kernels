@@ -24,7 +24,13 @@ scratch/
 # Project
 .copier-answers.yml
 
-# Data
+# Data & Runtime outputs
 *.csv
 *.png
 *.html
+benchmarks/results/*
+!benchmarks/results/.gitkeep
+
+# Published documentation assets
+!assets/
+!assets/**

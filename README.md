@@ -26,6 +26,31 @@ The [Direct Preference Optimization (DPO)](https://arxiv.org/abs/2305.18290) los
 
 ---
 
+## Benchmarks
+
+### DPO loss throughput
+
+Memory bandwidth throughput benchmark comparing the fused Triton kernel against PyTorch eager execution across sequence/batch dimensions ($N$) on an **NVIDIA Tesla T4** (Google Colab). The fused Triton kernel achieves up to **5.32x speedup** on smaller sizes and sustains **~108–114 GB/s** peak memory bandwidth (vs. ~50–58 GB/s for PyTorch).
+
+![DPO Loss Performance (NVIDIA T4)](assets/benchmarks/dpo-loss-performance-colab-t4-20261005.png)
+
+| N | Triton (GB/s) | PyTorch (GB/s) | Speedup |
+| ---: | ---: | ---: | ---: |
+| 1,024 | 1.92 | 0.36 | 5.32x |
+| 2,048 | 3.97 | 1.31 | 3.03x |
+| 4,096 | 11.70 | 2.62 | 4.47x |
+| 8,192 | 24.60 | 5.72 | 4.30x |
+| 16,384 | 39.86 | 10.53 | 3.79x |
+| 32,768 | 64.50 | 18.29 | 3.53x |
+| 65,536 | 88.80 | 31.12 | 2.85x |
+| 131,072 | 113.78 | 51.20 | 2.22x |
+| 262,144 | 107.61 | 58.23 | 1.85x |
+| 524,288 | 108.37 | 50.57 | 2.14x |
+
+Raw benchmark data is available in [dpo-loss-performance-colab-t4-20261005.csv](assets/benchmarks/dpo-loss-performance-colab-t4-20261005.csv).
+
+---
+
 ## Getting started
 
 Prerequisites: Python 3.14+ and [uv](https://github.com/astral-sh/uv).
@@ -74,14 +99,18 @@ Execute the DPO benchmark script on a machine with an accelerator:
 uv run python -m benchmarks.benchmark_dpo
 ```
 
+By default, this executes the benchmark suite and writes local output plots and CSV metrics to `benchmarks/results/`. Published reference results are documented in [Benchmarks](#benchmarks).
+
 ---
 
 ## Directory structure
 
 ```text
 .
+├── assets/                     # Published documentation assets and figures
 ├── src/rl_kernels/             # Fused Triton kernels, CPU fallbacks, and autograd functions
 ├── benchmarks/                 # Throughput, memory, and scaling benchmarks
+│   └── results/                # Local runtime benchmark outputs
 ├── tests/
 │   └── unit/                   # Fast zero-hardware mock and unit tests (<4s on CPU/MPS)
 ├── pyproject.toml              # uv-based Python project configuration
