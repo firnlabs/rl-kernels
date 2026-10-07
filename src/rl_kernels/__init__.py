@@ -1,4 +1,4 @@
-"""rl_kernels package."""
+"""Triton GPU kernels and autograd operators for reinforcement learning."""
 
 from rl_kernels.dpo import compute_dpo_loss
 from rl_kernels.triton_helper import is_triton_available

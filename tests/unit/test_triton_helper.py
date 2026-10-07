@@ -1,5 +1,3 @@
-"""Tests for triton_helper.py."""
-
 from unittest.mock import MagicMock
 
 import pytest

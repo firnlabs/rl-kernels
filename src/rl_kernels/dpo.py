@@ -1,4 +1,9 @@
-"""Triton kernels for Direct Preference Optimization (DPO)."""
+"""Triton kernels for Direct Preference Optimization (DPO).
+
+References:
+    Rafailov et al. (2023). Direct Preference Optimization: Your Language Model
+    is Secretly a Reward Model. https://arxiv.org/abs/2305.18290
+"""
 
 from typing import Any
 from typing import Protocol
@@ -215,6 +220,8 @@ class AutogradFunctionContext(Protocol):  # pragma: no cover
 
 
 class TritonDPOLossFunction[B](torch.autograd.Function):
+    """Custom autograd operator for fused DPO loss with Triton/Torch backends."""
+
     @staticmethod
     def forward(
         ctx: AutogradFunctionContext,
@@ -297,6 +304,32 @@ def compute_dpo_loss[B](
 ) -> tuple[
     Float[Tensor, ""], Float[Tensor, "B"], Float[Tensor, "B"], Float[Tensor, "B"]
 ]:
+    """Computes Direct Preference Optimization (DPO) loss and implicit rewards.
+
+    Implements the DPO objective from Rafailov et al. (2023), Eq. (7) with optional
+    conservative label smoothing.
+
+    Dispatches to fused Triton GPU kernels when hardware acceleration is available,
+    falling back to vectorized PyTorch.
+
+    Args:
+        policy_chosen_logps: Log-probabilities of chosen responses under policy.
+        policy_rejected_logps: Log-probabilities of rejected responses under policy.
+        ref_chosen_logps: Log-probabilities of chosen responses under reference model.
+        ref_rejected_logps: Log-probabilities of rejected responses under reference
+            model.
+        beta: Implicit reward scaling factor controlling reference policy
+            regularization.
+        label_smoothing: Conservative label smoothing parameter in [0, 1].
+
+    Returns:
+        A tuple of `(loss, chosen_rewards, rejected_rewards, logits)` where:
+            - loss: Scalar mean DPO loss across the batch.
+            - chosen_rewards: Detached implicit rewards for chosen completions.
+            - rejected_rewards: Detached implicit rewards for rejected completions.
+            - logits: Detached implicit reward margins
+              (`chosen_rewards - rejected_rewards`).
+    """
     loss, chosen_rewards, rejected_rewards, logits = TritonDPOLossFunction.apply(
         policy_chosen_logps=policy_chosen_logps,
         policy_rejected_logps=policy_rejected_logps,
