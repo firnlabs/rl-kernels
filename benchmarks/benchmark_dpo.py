@@ -103,7 +103,7 @@ def run_benchmark(
     *,
     show_plots: bool = False,
     print_data: bool = True,
-    save_path: str = ".",
+    save_path: str = "benchmarks/results",
 ) -> None:
     """Executes the DPO Triton vs PyTorch benchmark.
 
@@ -135,7 +135,7 @@ def main(
         help="Display generated benchmark plots interactively.",
     ),
     save_path: str = typer.Option(
-        ".",
+        "benchmarks/results",
         "--save-path",
         "-s",
         help="Directory to save benchmark plots and output files.",
