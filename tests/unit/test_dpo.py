@@ -1,5 +1,3 @@
-"""Tests for dpo.py."""
-
 from jaxtyping import Float
 import pytest
 import torch
