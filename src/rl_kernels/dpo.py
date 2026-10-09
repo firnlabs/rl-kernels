@@ -206,8 +206,8 @@ def _compute_dpo_loss_backward_torch[B](
     B = logits.shape[0]
     sig = F.sigmoid(logits)
     grad_policy_chosen_logps = grad_output / B * beta * (sig - (1.0 - label_smoothing))
-    grad_plicy_rejected_logps = -grad_policy_chosen_logps
-    return grad_policy_chosen_logps, grad_plicy_rejected_logps
+    grad_policy_rejected_logps = -grad_policy_chosen_logps
+    return grad_policy_chosen_logps, grad_policy_rejected_logps
 
 
 class AutogradFunctionContext(Protocol):  # pragma: no cover
