@@ -24,6 +24,12 @@ In standard PyTorch eager execution, compound operations trigger multiple sequen
 
 The [Direct Preference Optimization (DPO)](https://arxiv.org/abs/2305.18290) loss kernel function (`compute_dpo_loss`) fuses policy/reference log-ratio differences, implicit reward margins, and numerically stable log-sigmoid losses into a single GPU kernel launch. It uses a backward Triton kernel as well. If Triton or CUDA is not available, the function falls back to a PyTorch implementation.
 
+### Generalized Advantage Estimation (GAE)
+
+The [Generalized Advantage Estimation (GAE)](https://arxiv.org/abs/1506.02438) kernel function (`compute_gae`) computes advantages and TD(λ) value targets (`advantages + values`) for variable-length rollouts in a single GPU kernel launch. Each batch row runs as one Triton program, and the reverse-time GAE recursion is carried in registers, so intermediate deltas are never written to HBM. Positions past each row's `seq_lens` are left as zeros. If Triton or an accelerator (CUDA/MPS) is not available, the function falls back to a PyTorch implementation (`compute_gae_torch`) that is vectorized over the batch.
+
+GAE outputs are used as fixed targets in the policy and value losses, so the kernel is forward-only (no autograd backward).
+
 ---
 
 ## Benchmarks
@@ -89,6 +95,28 @@ loss.backward()
 print(f"DPO Loss: {loss.item():.4f}")
 print(f"Chosen rewards: {chosen_rewards}")
 print(f"Policy chosen Gradients: {policy_chosen.grad}")
+```
+
+Using the GAE kernel:
+
+```python
+import torch
+from rl_kernels import compute_gae
+
+batch_size, max_len = 4, 8
+rewards = torch.zeros(batch_size, max_len)
+rewards[:, -1] = 1.0  # terminal reward
+values = torch.full((batch_size, max_len), 0.5)
+next_values = torch.zeros(batch_size)
+dones = torch.zeros(batch_size, max_len)
+dones[:, -1] = 1.0
+seq_lens = torch.full((batch_size,), max_len, dtype=torch.int64)
+
+# Uses the Triton kernel if Triton and an accelerator are available; otherwise
+# switches to the PyTorch implementation
+advantages, target_values = compute_gae(
+    rewards, values, next_values, dones, seq_lens, gamma=0.99, lam=0.95
+)
 ```
 
 ### Running benchmarks
